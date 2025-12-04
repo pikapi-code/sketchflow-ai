@@ -33,7 +33,7 @@ jobs:
 
       - name: Create deployment archive
         run: |
-          tar -czf deploy.tar.gz dist/ package.json
+          tar -czf deploy.tar.gz dist/ package.json Dockerfile docker-compose.yml nginx.conf
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -64,6 +64,8 @@ jobs:
 
       - name: Extract and deploy on VM
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
@@ -72,11 +74,23 @@ jobs:
           script: |
             cd /tmp
             tar -xzf deploy.tar.gz
-            sudo mkdir -p /var/www/sketchflow-ai
-            sudo rm -rf /var/www/sketchflow-ai/*
-            sudo cp -r dist/* /var/www/sketchflow-ai/
-            sudo chown -R www-data:www-data /var/www/sketchflow-ai
-            rm -f deploy.tar.gz
-            # Restart nginx if using nginx
-            sudo systemctl reload nginx || true
+            
+            # Create deployment directory if it doesn't exist
+            sudo mkdir -p /opt/sketchflow-ai
+            sudo chown -R ${USER}:${USER} /opt/sketchflow-ai
+            
+            # Copy files to deployment directory
+            cp -r dist/ package.json Dockerfile docker-compose.yml nginx.conf /opt/sketchflow-ai/
+            
+            # Create or update .env file with GEMINI_API_KEY
+            cd /opt/sketchflow-ai
+            echo "GEMINI_API_KEY=${GEMINI_API_KEY}" > .env
+            
+            # Build and restart Docker container
+            docker compose down || true
+            docker compose up -d --build
+            
+            # Cleanup
+            rm -f /tmp/deploy.tar.gz
+            rm -rf /tmp/dist /tmp/package.json /tmp/Dockerfile /tmp/docker-compose.yml /tmp/nginx.conf
 

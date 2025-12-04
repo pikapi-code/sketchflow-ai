@@ -51,7 +51,7 @@ This project supports multiple deployment methods:
 
 ### Option 1: GitHub Actions (Recommended)
 
-Automated deployment using GitHub Actions workflow.
+Automated deployment using GitHub Actions workflow with Docker.
 
 #### Setup:
 
@@ -64,52 +64,40 @@ Automated deployment using GitHub Actions workflow.
      - `VM_PORT`: SSH port (default: 22, optional)
      - `GEMINI_API_KEY`: Your Gemini API key
 
-2. **Setup VM:**
+2. **Setup VM (one-time setup):**
    ```bash
-   # On your VM, install nginx
-   sudo apt update
-   sudo apt install -y nginx
+   # Install Docker and Docker Compose
+   curl -fsSL https://get.docker.com -o get-docker.sh
+   sudo sh get-docker.sh
+   sudo apt install -y docker-compose-plugin
    
-   # Create deployment directory
-   sudo mkdir -p /var/www/sketchflow-ai
-   sudo chown -R $USER:$USER /var/www/sketchflow-ai
-   
-   # Copy deploy script
-   sudo mkdir -p /opt/sketchflow-ai
-   sudo cp deploy.sh /opt/sketchflow-ai/
-   sudo chmod +x /opt/sketchflow-ai/deploy.sh
+   # Add your user to docker group (optional, to run docker without sudo)
+   sudo usermod -aG docker $USER
    ```
+   
+   **Note:** The GitHub Actions workflow will automatically create `/opt/sketchflow-ai` and handle all deployment files. You don't need to manually create directories or configure nginx.
 
-3. **Configure Nginx:**
+3. **Configure Firewall:**
    ```bash
-   sudo nano /etc/nginx/sites-available/sketchflow-ai
-   ```
-   
-   Add this configuration:
-   ```nginx
-   server {
-       listen 80;
-       server_name your-domain.com;  # Replace with your domain or IP
-       
-       root /var/www/sketchflow-ai;
-       index index.html;
-       
-       location / {
-           try_files $uri $uri/ /index.html;
-       }
-   }
-   ```
-   
-   Enable the site:
-   ```bash
-   sudo ln -s /etc/nginx/sites-available/sketchflow-ai /etc/nginx/sites-enabled/
-   sudo nginx -t
-   sudo systemctl restart nginx
+   # Allow HTTP traffic on port 8000 (or your chosen port)
+   gcloud compute firewall-rules create allow-http-8000 \
+       --allow tcp:8000 \
+       --source-ranges 0.0.0.0/0 \
+       --priority 1000
    ```
 
 4. **Deploy:**
    - Push to `main` branch, or
    - Manually trigger workflow from Actions tab
+   
+   The workflow will automatically:
+   - Build the application
+   - Deploy to `/opt/sketchflow-ai` on your VM
+   - Create/update `.env` file with your API key
+   - Build and restart the Docker container
+   
+5. **Access your app:**
+   - Open `http://your-vm-ip:8000` in your browser
 
 ### Option 2: Docker Deployment
 
@@ -141,7 +129,7 @@ Deploy using Docker containers.
    ```
 
 5. **Access your app:**
-   - Open `http://your-vm-ip` in your browser
+   - Open `http://your-vm-ip:8000` in your browser
 
 ### Option 3: Manual Deployment
 
@@ -174,6 +162,14 @@ The app requires `GEMINI_API_KEY` to be set. For production:
 
 ### Troubleshooting
 
-- **502 Bad Gateway**: Check nginx logs: `sudo tail -f /var/log/nginx/error.log`
-- **Permission denied**: Ensure www-data owns the files: `sudo chown -R www-data:www-data /var/www/sketchflow-ai`
-- **API errors**: Verify `GEMINI_API_KEY` is correctly set and valid
+- **502 Bad Gateway / Can't access app**: 
+  - Check if Docker container is running: `docker ps`
+  - Check container logs: `docker logs sketchflow-ai-sketchflow-ai-1`
+  - Verify firewall rule allows your port: `gcloud compute firewall-rules list`
+- **Permission denied**: 
+  - Ensure your user can run docker: `sudo usermod -aG docker $USER` (then logout/login)
+  - Check directory permissions: `ls -la /opt/sketchflow-ai`
+- **API errors**: 
+  - Verify `GEMINI_API_KEY` is correctly set in GitHub secrets
+  - Check `.env` file on VM: `cat /opt/sketchflow-ai/.env`
+  - Restart container: `cd /opt/sketchflow-ai && docker compose restart`
