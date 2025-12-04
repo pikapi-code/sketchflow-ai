@@ -5,34 +5,79 @@
 
 ## Features
 
+> 📖 For detailed feature documentation, see [FEATURES.md](FEATURES.md)
+
 ### 🎨 Drawing Tools
-- **Shapes**: Rectangle, Ellipse, Diamond
-- **Connectors**: Arrows and Lines
-- **Freehand**: Scribble tool for natural drawing
-- **Text**: Add labels and annotations
-- **Eraser**: Remove unwanted elements
+- **Shapes** (R, O, D): Rectangle, Ellipse, Diamond with hand-drawn aesthetics
+- **Connectors** (A, L): Arrows and Lines with smart sticky bindings
+- **Freehand** (P): Scribble tool for natural drawing with smooth strokes
+- **Text** (T): Add labels and annotations with multiple font options
+- **Eraser** (E): Remove unwanted elements
+- **Selection** (V): Multi-select, move, and resize with handles
 
 ### 🤖 AI-Powered Generation
-- Generate complete diagrams from text descriptions using Google Gemini
-- Automatically creates flowcharts, system diagrams, and more
-- Intelligent layout and element positioning
+- **Text-to-Diagram**: Generate complete diagrams from natural language descriptions
+- **Powered by Google Gemini**: Advanced AI for intelligent diagram creation
+- **Auto-Layout**: Automatically creates flowcharts, system diagrams, and more
+- **Smart Centering**: AI-generated diagrams appear centered in your viewport
 
-### ✨ Advanced Features
-- **Hand-drawn Style**: Uses Rough.js for authentic sketch aesthetics
-- **Selection & Editing**: Multi-select, move, resize, and customize elements
-- **Undo/Redo**: Full history support for easy corrections
-- **Pan & Zoom**: Navigate large canvases effortlessly
-- **Properties Panel**: Customize colors, stroke width, fill styles, and more
-- **Dark Mode**: Toggle between light and dark themes
-- **Export**: Download your creations as images
+### ⌨️ Keyboard Shortcuts
+- **Full Keyboard Control**: Every tool and action has a keyboard shortcut
+- **Shortcuts Panel**: Built-in reference guide (toggle with keyboard icon)
+- **Quick Tools**: V, R, D, O, A, L, P, T, E for instant tool switching
+- **Standard Actions**: Ctrl+Z undo, Ctrl+A select all, Delete/Backspace to remove
+
+### 🎨 Styling & Customization
+- **Properties Panel**: Comprehensive styling controls for all elements
+- **Colors**: 9 preset colors + custom color picker for stroke and fill
+- **Fill Styles**: Solid, Hachure, Cross-hatch, Zigzag, Dots, None
+- **Stroke Width**: Adjustable 1-5 pixels with slider
+- **Roughness**: Control hand-drawn "sketchiness" (0-3 levels)
+- **Opacity**: 0-100% transparency support
+- **Text Fonts**: 10+ font families including Sans, Serif, Monospace, and more
+
+### 📐 Canvas Navigation
+- **Pan & Zoom**: Smooth navigation with scroll/pinch gestures
+- **Zoom to Cursor**: Ctrl/Cmd + Scroll zooms toward mouse position
+- **Zoom Range**: 10% to 2000% zoom levels
+- **MiniMap**: Optional movable/resizable overview map (toggle on/off)
+- **Viewport Info**: Real-time element count and zoom percentage
+
+### 🎯 Smart Features
+- **Sticky Line Bindings**: Lines/arrows automatically attach to shapes
+- **Persistent Connections**: Lines follow shapes when moved
+- **Snap-to-Shape**: Automatic endpoint snapping for clean diagrams
+- **Double-Click Edit**: Quickly edit text on any element
+- **Selection Handles**: 8-point handles for shapes, 2-point for lines
+- **Smart Box Selection**: Drag box to select multiple elements
+- **Pending Draw System**: Only creates elements when you drag 5+ pixels
+
+### 🔄 History & Editing
+- **Unlimited Undo/Redo**: Full history with Ctrl+Z and Ctrl+Shift+Z
+- **Multi-Selection**: Shift/Ctrl + Click or drag box to select multiple
+- **Bulk Operations**: Move, style, or delete multiple elements at once
+- **Text Editing**: Add text to any element, not just text objects
+- **Auto-Cleanup**: Empty text elements removed automatically
+
+### 🌓 Themes & Export
+- **Light & Dark Mode**: Toggle with theme button
+- **Theme-Aware Export**: PNG exports respect current theme
+- **High Quality**: Full resolution canvas export
+- **Timestamped Files**: Automatic naming for easy organization
+
+### 🎨 Visual Design
+- **Neomorphic UI**: Modern shadow-based design system
+- **Hand-drawn Aesthetic**: Rough.js powered rendering for sketch look
+- **Dotted Canvas**: Subtle grid background that adapts to theme
+- **Professional Polish**: Balances casual sketch style with precision
 
 ### 🎯 Use Cases
-- Flowcharts and process diagrams
-- System architecture diagrams
-- Wireframes and mockups
-- Brainstorming and mind maps
-- Technical documentation
-- Educational diagrams
+- **Software Development**: System architecture, flowcharts, component diagrams
+- **Business**: Process flows, workflows, organizational charts
+- **Education**: Teaching diagrams, visual notes, concept mapping
+- **Design**: Wireframes, mockups, storyboards
+- **Documentation**: Technical diagrams, annotated visuals
+- **Brainstorming**: Mind maps, idea exploration, collaborative whiteboarding
 
 ## Run Locally
 

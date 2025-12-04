@@ -111,7 +111,7 @@ export const drawElement = (
       }
       break;
     case "text":
-      context.font = `${element.fontSize}px sans-serif`;
+      context.font = `${element.fontSize}px ${element.fontFamily || 'sans-serif'}`;
       context.fillStyle = effectiveStrokeColor;
       context.textAlign = "center";
       context.textBaseline = "middle";
@@ -130,7 +130,7 @@ export const drawElement = (
   // Render text for non-text elements (centered)
   if (element.type !== 'text' && element.text) {
     context.save();
-    context.font = `${element.fontSize || 24}px sans-serif`;
+    context.font = `${element.fontSize || 24}px ${element.fontFamily || 'sans-serif'}`;
     context.textAlign = "center";
     context.textBaseline = "middle";
 

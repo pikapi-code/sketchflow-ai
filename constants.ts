@@ -16,11 +16,25 @@ export const DEFAULT_CONFIG: CanvasConfig = {
   strokeColor: "#000000",
   backgroundColor: "#ffffff",
   fillStyle: "solid",
-  strokeWidth: 2,
+  strokeWidth: 1,
   roughness: 1,
   opacity: 100,
   fontSize: 24,
+  fontFamily: "monospace",
 };
+
+export const FONTS = [
+  { value: "sans-serif", label: "Sans Serif" },
+  { value: "serif", label: "Serif" },
+  { value: "monospace", label: "Monospace" },
+  { value: "cursive", label: "Cursive" },
+  { value: "fantasy", label: "Fantasy" },
+  { value: "Arial, sans-serif", label: "Arial" },
+  { value: "Georgia, serif", label: "Georgia" },
+  { value: "'Courier New', monospace", label: "Courier New" },
+  { value: "'Times New Roman', serif", label: "Times New Roman" },
+  { value: "Verdana, sans-serif", label: "Verdana" },
+];
 
 export const COLORS = [
   "transparent",

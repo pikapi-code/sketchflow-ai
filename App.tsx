@@ -4,11 +4,13 @@ import { nanoid } from 'nanoid';
 import Toolbar from './components/Toolbar';
 import PropertiesPanel from './components/PropertiesPanel';
 import AIGenerator from './components/AIGenerator';
+import MiniMap from './components/MiniMap';
+import ShortcutsPanel from './components/ShortcutsPanel';
 import { AppState, CanvasConfig, SketchElement, Point } from './types';
 import { DEFAULT_CONFIG } from './constants';
 import { drawElement } from './utils/draw';
-import { getElementAtPosition, getElementsInsideBox, getSnapPoint, getResizeHandle } from './utils/math';
-import { Sparkles } from 'lucide-react';
+import { getElementAtPosition, getElementsInsideBox, getSnapPoint, getResizeHandle, getCursorForHandle, ResizeHandle } from './utils/math';
+import { Sparkles, Keyboard } from 'lucide-react';
 
 const App = () => {
     // State
@@ -26,16 +28,24 @@ const App = () => {
         isLoadingAI: false,
     });
     const [config, setConfig] = useState<CanvasConfig>(DEFAULT_CONFIG);
-    const [action, setAction] = useState<'none' | 'drawing' | 'moving' | 'resizing' | 'panning' | 'erasing' | 'selecting'>('none');
-    const [resizeHandle, setResizeHandle] = useState<'start' | 'end' | null>(null);
+    const [action, setAction] = useState<'none' | 'drawing' | 'moving' | 'resizing' | 'panning' | 'erasing' | 'selecting' | 'pending_drawing'>('none');
+    const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
     const [resizingElementId, setResizingElementId] = useState<string | null>(null);
+    const [drawStartPos, setDrawStartPos] = useState<Point | null>(null);
+    const [pendingElement, setPendingElement] = useState<SketchElement | null>(null);
 
     const [isAIModalOpen, setIsAIModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [showProperties, setShowProperties] = useState(true);
+    const [showMiniMap, setShowMiniMap] = useState(false);
+    const [showShortcutsPanel, setShowShortcutsPanel] = useState(true);
 
     // Selection Box State
     const [selectionStart, setSelectionStart] = useState<Point | null>(null);
     const [selectionEnd, setSelectionEnd] = useState<Point | null>(null);
+
+    // Pan state
+    const [panStart, setPanStart] = useState<Point | null>(null);
 
     // Refs
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -135,9 +145,24 @@ const App = () => {
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (editingId) return; // Ignore keys if editing text
-
             const isCtrl = e.ctrlKey || e.metaKey;
+
+            // Select All - handle this first before other shortcuts
+            // Only skip if actively editing text (editingId is set)
+            if (isCtrl && e.key.toLowerCase() === 'a') {
+                if (!editingId) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const allIds = elements.filter(el => !el.isDeleted).map(el => el.id);
+                    setAppState(prev => ({ ...prev, selection: allIds, tool: 'selection' }));
+                    return;
+                }
+                // If editing, let browser handle Ctrl+A for text selection
+                return;
+            }
+
+            // If editing text in our app, ignore other shortcuts
+            if (editingId) return;
 
             // Tools Shortcuts
             if (!isCtrl && !e.shiftKey) {
@@ -177,23 +202,16 @@ const App = () => {
             }
 
             // Undo
-            if (isCtrl && e.key === 'z') {
+            if (isCtrl && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 if (e.shiftKey) redo();
                 else undo();
             }
 
             // Redo (Ctrl+Y)
-            if (isCtrl && e.key === 'y') {
+            if (isCtrl && e.key.toLowerCase() === 'y') {
                 e.preventDefault();
                 redo();
-            }
-
-            // Select All
-            if (isCtrl && e.key === 'a') {
-                e.preventDefault();
-                const allIds = elements.filter(el => !el.isDeleted).map(el => el.id);
-                setAppState(prev => ({ ...prev, selection: allIds, tool: 'selection' }));
             }
 
             // Delete
@@ -205,9 +223,10 @@ const App = () => {
                 }
             }
         };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [elements, appState.selection, editingId, appState.history, appState.historyStep]);
+        // Use document instead of window and capture phase to ensure we catch the event
+        document.addEventListener('keydown', handleKeyDown, true);
+        return () => document.removeEventListener('keydown', handleKeyDown, true);
+    }, [elements, appState.selection, editingId, appState.history, appState.historyStep, undo, redo, saveHistory]);
 
     // Canvas Rendering
     useLayoutEffect(() => {
@@ -272,6 +291,29 @@ const App = () => {
                     }
                 } else {
                     context.strokeRect(el.x - 5, el.y - 5, el.width + 10, el.height + 10);
+
+                    // Draw 8 handles
+                    context.setLineDash([]);
+                    context.fillStyle = "#ffffff";
+                    const x1 = el.x - 5;
+                    const y1 = el.y - 5;
+                    const x2 = el.x + el.width + 5;
+                    const y2 = el.y + el.height + 5;
+                    const cx = (x1 + x2) / 2;
+                    const cy = (y1 + y2) / 2;
+
+                    const handles = [
+                        { x: x1, y: y1 }, { x: cx, y: y1 }, { x: x2, y: y1 },
+                        { x: x1, y: cy }, { x: x2, y: cy },
+                        { x: x1, y: y2 }, { x: cx, y: y2 }, { x: x2, y: y2 }
+                    ];
+
+                    handles.forEach(h => {
+                        context.beginPath();
+                        context.rect(h.x - 4, h.y - 4, 8, 8);
+                        context.fill();
+                        context.stroke();
+                    });
                 }
                 context.setLineDash([]);
             });
@@ -390,7 +432,9 @@ const App = () => {
                 }
                 setAction('moving');
             } else {
-                // Empty space clicked - Start Box Selection
+                // Empty space clicked - Start Box Selection or Panning
+                // Store initial click position for panning detection
+                setPanStart({ x: clientX, y: clientY });
                 setAction('selecting');
                 setSelectionStart({ x, y });
                 setSelectionEnd({ x, y });
@@ -406,7 +450,8 @@ const App = () => {
             }
             setAction('erasing');
         } else {
-            // Create new element
+            // Store initial position and prepare element data, but don't create yet
+            // Element will only be created when user actually drags
             const id = nanoid();
             let startBinding = undefined;
             let points = undefined;
@@ -440,11 +485,15 @@ const App = () => {
                 opacity: config.opacity,
                 seed: Math.floor(Math.random() * 2 ** 31),
                 points: points || [],
-                startBinding: startBinding
+                startBinding: startBinding,
+                fontSize: config.fontSize,
+                fontFamily: config.fontFamily
             };
-            setElements([...elements, newEl]);
-            setAction('drawing');
-            setAppState(prev => ({ ...prev, selection: [id] }));
+            
+            // Store initial position and pending element, but don't add to elements yet
+            setDrawStartPos({ x: clientX, y: clientY });
+            setPendingElement(newEl);
+            setAction('pending_drawing');
         }
     };
 
@@ -453,7 +502,57 @@ const App = () => {
         const x = (clientX - appState.viewOffset.x) / appState.zoom;
         const y = (clientY - appState.viewOffset.y) / appState.zoom;
 
+        // Check if we should start drawing (user has dragged)
+        let shouldProcessDrawing = false;
+        let currentElements = elements;
+        
+        if (action === 'pending_drawing' && drawStartPos && pendingElement) {
+            const dx = clientX - drawStartPos.x;
+            const dy = clientY - drawStartPos.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // If moved more than 5 pixels, create the element and start drawing
+            if (distance > 5) {
+                currentElements = [...elements, pendingElement];
+                setElements(currentElements);
+                setAppState(prev => ({ ...prev, selection: [pendingElement.id] }));
+                setAction('drawing');
+                setDrawStartPos(null);
+                setPendingElement(null);
+                // Continue processing drawing in this same call
+                shouldProcessDrawing = true;
+            } else {
+                // Not enough movement yet, wait
+                return;
+            }
+        }
+
         if (action === 'selecting') {
+            // Check if we should switch to panning mode
+            // If mouse has moved significantly from initial click position, switch to panning
+            if (panStart) {
+                const dx = clientX - panStart.x;
+                const dy = clientY - panStart.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // If moved more than 5 pixels, switch to panning
+                if (distance > 5) {
+                    setAction('panning');
+                    setPanStart(null);
+                    setSelectionStart(null);
+                    setSelectionEnd(null);
+                    // Execute panning immediately
+                    setAppState(prev => ({
+                        ...prev,
+                        viewOffset: {
+                            x: prev.viewOffset.x + e.movementX,
+                            y: prev.viewOffset.y + e.movementY
+                        }
+                    }));
+                    return;
+                }
+            }
+            // Still selecting, update selection box
             setSelectionEnd({ x, y });
             if (selectionStart) {
                 const box = {
@@ -531,14 +630,66 @@ const App = () => {
                     const copy = [...elements];
                     copy[index] = updatedEl;
                     setElements(copy);
+                } else {
+                    // Box resizing
+                    // We need to calculate based on the handle
+                    // We need to preserve the aspect of the "opposite" side
+                    const { x: elX, y: elY, width: elW, height: elH } = el;
+
+                    // Current bounds
+                    const right = elX + elW;
+                    const bottom = elY + elH;
+
+                    let newX = elX;
+                    let newY = elY;
+                    let newW = elW;
+                    let newH = elH;
+
+                    if (resizeHandle === 'nw' || resizeHandle === 'w' || resizeHandle === 'sw') {
+                        newX = x;
+                        newW = right - x;
+                    }
+                    if (resizeHandle === 'ne' || resizeHandle === 'e' || resizeHandle === 'se') {
+                        newW = x - elX;
+                    }
+                    if (resizeHandle === 'nw' || resizeHandle === 'n' || resizeHandle === 'ne') {
+                        newY = y;
+                        newH = bottom - y;
+                    }
+                    if (resizeHandle === 'sw' || resizeHandle === 's' || resizeHandle === 'se') {
+                        newH = y - elY;
+                    }
+
+                    // Handle negative width/height (flipping)
+                    if (newW < 0) {
+                        newX += newW;
+                        newW = Math.abs(newW);
+                    }
+                    if (newH < 0) {
+                        newY += newH;
+                        newH = Math.abs(newH);
+                    }
+
+                    const updatedEl = {
+                        ...el,
+                        x: newX,
+                        y: newY,
+                        width: newW,
+                        height: newH
+                    };
+                    const copy = [...elements];
+                    copy[index] = updatedEl;
+                    setElements(copy);
                 }
             }
             return;
         }
 
-        if (action === 'drawing') {
-            const index = elements.length - 1;
-            const el = elements[index];
+        if (action === 'drawing' || shouldProcessDrawing) {
+            // Use currentElements if we just created it, otherwise use elements
+            const workingElements = shouldProcessDrawing ? currentElements : elements;
+            const index = workingElements.length - 1;
+            const el = workingElements[index];
 
             if (!el) return;
 
@@ -554,7 +705,7 @@ const App = () => {
                 const maxY = Math.max(...ys);
 
                 const updatedEl = { ...el, points: newPoints, x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-                const copy = [...elements];
+                const copy = [...workingElements];
                 copy[index] = updatedEl;
                 setElements(copy);
             } else if (el.type === 'arrow' || el.type === 'line') {
@@ -563,7 +714,7 @@ const App = () => {
                 let endY = y;
                 let endBindingId = undefined;
 
-                const hitEl = getElementAtPosition(x, y, elements);
+                const hitEl = getElementAtPosition(x, y, workingElements);
                 // Don't snap to self or scribble
                 if (hitEl && hitEl.id !== el.id && hitEl.type !== 'scribble' && hitEl.type !== 'line' && hitEl.type !== 'arrow') {
                     const snap = getSnapPoint(hitEl, { x, y });
@@ -579,7 +730,7 @@ const App = () => {
                     points: [{ x: startX, y: startY }, { x: endX, y: endY }],
                     endBinding: endBindingId
                 };
-                const copy = [...elements];
+                const copy = [...workingElements];
                 copy[index] = updatedEl;
                 setElements(copy);
             } else {
@@ -592,7 +743,7 @@ const App = () => {
                     x: width < 0 ? x : startX,
                     y: height < 0 ? y : startY
                 };
-                const copy = [...elements];
+                const copy = [...workingElements];
                 copy[index] = updatedEl;
                 setElements(copy);
             }
@@ -627,7 +778,7 @@ const App = () => {
                 if (!appState.selection.includes(el.id) && (el.type === 'line' || el.type === 'arrow') && el.points) {
                     const startBindingEl = el.startBinding ? elements.find(e => e.id === el.startBinding) : null;
                     const endBindingEl = el.endBinding ? elements.find(e => e.id === el.endBinding) : null;
-                    
+
                     // Only move if the binding element exists AND is selected
                     const startAttachedToSelection = el.startBinding && startBindingEl && appState.selection.includes(el.startBinding);
                     const endAttachedToSelection = el.endBinding && endBindingEl && appState.selection.includes(el.endBinding);
@@ -659,19 +810,28 @@ const App = () => {
     };
 
     const handlePointerUp = () => {
+        // If we were pending drawing but never actually created the element, clean up
+        if (action === 'pending_drawing') {
+            setPendingElement(null);
+            setDrawStartPos(null);
+        }
+        
         if (action === 'drawing' || action === 'moving' || action === 'erasing' || action === 'resizing') {
             saveHistory(elements);
         }
         setAction('none');
         setSelectionStart(null);
         setSelectionEnd(null);
+        setPanStart(null);
         setResizingElementId(null);
         setResizeHandle(null);
+        setPendingElement(null);
+        setDrawStartPos(null);
     };
 
     const handleWheel = (e: React.WheelEvent) => {
         // Pan
-        if (!e.ctrlKey) {
+        if (!e.ctrlKey && !e.metaKey) {
             setAppState(prev => ({
                 ...prev,
                 viewOffset: {
@@ -680,10 +840,28 @@ const App = () => {
                 }
             }));
         } else {
-            // Zoom
-            const scale = e.deltaY > 0 ? 0.9 : 1.1;
-            const newZoom = Math.max(0.1, Math.min(5, appState.zoom * scale));
-            setAppState(prev => ({ ...prev, zoom: newZoom }));
+            // Zoom towards cursor
+            e.preventDefault();
+            const scaleFactor = 1.1;
+            const scale = e.deltaY < 0 ? scaleFactor : 1 / scaleFactor;
+            const newZoom = Math.max(0.1, Math.min(20, appState.zoom * scale));
+
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            // Calculate world coordinates of the mouse before zoom
+            const worldX = (mouseX - appState.viewOffset.x) / appState.zoom;
+            const worldY = (mouseY - appState.viewOffset.y) / appState.zoom;
+
+            // Calculate new offset to keep the world point at the same screen position
+            const newOffsetX = mouseX - worldX * newZoom;
+            const newOffsetY = mouseY - worldY * newZoom;
+
+            setAppState(prev => ({
+                ...prev,
+                zoom: newZoom,
+                viewOffset: { x: newOffsetX, y: newOffsetY }
+            }));
         }
     };
 
@@ -779,8 +957,15 @@ const App = () => {
 
     const editingElement = editingId ? elements.find(el => el.id === editingId) : null;
 
+
+
     return (
         <div className="w-screen h-screen overflow-hidden relative touch-none select-none font-sans">
+            <ShortcutsPanel 
+                isOpen={showShortcutsPanel}
+                onClose={() => setShowShortcutsPanel(false)}
+            />
+            
             <Toolbar
                 appState={appState}
                 setTool={(t) => setAppState(prev => ({ ...prev, tool: t, selection: [] }))}
@@ -788,17 +973,48 @@ const App = () => {
                 redo={redo}
                 toggleTheme={() => setAppState(prev => ({ ...prev, theme: prev.theme === 'light' ? 'dark' : 'light' }))}
                 exportImage={exportImage}
+                showProperties={showProperties}
+                toggleProperties={() => setShowProperties(!showProperties)}
+                showMiniMap={showMiniMap}
+                toggleMiniMap={() => setShowMiniMap(!showMiniMap)}
+                showShortcutsPanel={showShortcutsPanel}
+                toggleShortcutsPanel={() => setShowShortcutsPanel(!showShortcutsPanel)}
             />
 
             <PropertiesPanel
-                isOpen={appState.selection.length > 0 || appState.tool !== 'selection'}
+                isOpen={showProperties && (appState.selection.length > 0 || appState.tool !== 'selection')}
+                onClose={() => setShowProperties(false)}
                 config={config}
                 onChange={handlePropertyChange}
             />
 
+            <MiniMap
+                elements={elements}
+                viewOffset={appState.viewOffset}
+                zoom={appState.zoom}
+                canvasWidth={window.innerWidth}
+                canvasHeight={window.innerHeight}
+                theme={appState.theme}
+                isOpen={showMiniMap}
+                onClose={() => setShowMiniMap(false)}
+                onViewportChange={(offset) => setAppState(prev => ({ ...prev, viewOffset: offset }))}
+            />
+
+            <button
+                onClick={() => setShowShortcutsPanel(!showShortcutsPanel)}
+                className={`fixed top-4 right-4 p-3 shadow-neo border-2 border-black z-50 flex items-center justify-center transition-all hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-neo ${
+                    showShortcutsPanel 
+                        ? 'bg-neo-purple text-black' 
+                        : 'bg-white dark:bg-gray-800 text-black dark:text-white'
+                }`}
+                title="Toggle Keyboard Shortcuts"
+            >
+                <Keyboard className="w-5 h-5 stroke-[2.5]" />
+            </button>
+
             <button
                 onClick={() => setIsAIModalOpen(true)}
-                className="fixed bottom-6 right-6 bg-brand-500 hover:bg-brand-600 text-white p-4 shadow-neo border-2 border-black z-50 flex items-center gap-2 transition-all hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-neo"
+                className="fixed bottom-6 right-4 bg-brand-500 hover:bg-brand-600 text-white p-4 shadow-neo border-2 border-black z-50 flex items-center gap-2 transition-all hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-neo"
             >
                 <Sparkles className="w-6 h-6 stroke-[3]" />
                 <span className="font-black hidden sm:inline uppercase tracking-wider">AI Generate</span>
@@ -848,7 +1064,7 @@ const App = () => {
                             left: left * appState.zoom + appState.viewOffset.x,
                             top: top * appState.zoom + appState.viewOffset.y,
                             fontSize: (editingElement.fontSize || (editingElement.type === 'text' ? 24 : 16)) * appState.zoom,
-                            fontFamily: 'sans-serif',
+                            fontFamily: editingElement.fontFamily || 'sans-serif',
                             width: width * appState.zoom,
                             height: height * appState.zoom,
                             color: appState.theme === 'dark' ? '#ffffff' : (editingElement.strokeColor === '#ffffff' ? '#000000' : editingElement.strokeColor),
@@ -873,15 +1089,26 @@ const App = () => {
 
             <canvas
                 ref={canvasRef}
+                tabIndex={0}
                 className="block touch-none cursor-crosshair active:cursor-grabbing bg-dots-light dark:bg-dots-dark"
                 style={{
-                    cursor: appState.tool === 'selection' ? 'default' : (appState.tool === 'eraser' ? 'cell' : 'crosshair'),
+                    width: '100vw',
+                    height: '100vh',
+                    cursor: action === 'panning' ? 'grabbing' :
+                        (action === 'resizing' && resizeHandle ? getCursorForHandle(resizeHandle) :
+                            (appState.tool === 'selection' ? 'default' : (appState.tool === 'eraser' ? 'cell' : 'crosshair'))),
                     backgroundSize: '20px 20px',
                     backgroundImage: appState.theme === 'light'
                         ? 'radial-gradient(circle, #000000 1px, transparent 1px)'
                         : 'radial-gradient(circle, #333333 1px, transparent 1px)'
                 }}
-                onPointerDown={handlePointerDown}
+                onPointerDown={(e) => {
+                    // Focus canvas on click to ensure keyboard events work
+                    if (canvasRef.current) {
+                        canvasRef.current.focus();
+                    }
+                    handlePointerDown(e);
+                }}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerLeave={handlePointerUp}
@@ -889,7 +1116,7 @@ const App = () => {
                 onDoubleClick={handleDoubleClick}
             />
 
-            <div className="fixed bottom-2 left-2 text-xs font-bold text-black dark:text-gray-500 pointer-events-none select-none uppercase tracking-widest bg-white dark:bg-black p-1 border border-black dark:border-gray-700">
+            <div className="fixed bottom-2 left-4 text-xs font-bold text-black dark:text-gray-500 pointer-events-none select-none uppercase tracking-widest bg-white dark:bg-black p-1 border border-black dark:border-gray-700">
                 {elements.length} elements | Zoom: {Math.round(appState.zoom * 100)}%
             </div>
         </div>

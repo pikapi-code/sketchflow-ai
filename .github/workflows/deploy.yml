@@ -75,15 +75,39 @@ jobs:
             cd /tmp
             tar -xzf deploy.tar.gz
             
-            # Create deployment directory if it doesn't exist
-            sudo mkdir -p /opt/sketchflow-ai
-            sudo chown -R ${USER}:${USER} /opt/sketchflow-ai
+            # Set deployment directory
+            DEPLOY_DIR="/opt/sketchflow-ai"
+            
+            # Create deployment directory if it doesn't exist (handle permissions)
+            if [ ! -d "${DEPLOY_DIR}" ]; then
+              # Try with sudo first
+              if sudo mkdir -p ${DEPLOY_DIR} 2>/dev/null && sudo chown -R ${USER}:${USER} ${DEPLOY_DIR} 2>/dev/null; then
+                echo "Created ${DEPLOY_DIR} with sudo"
+              else
+                # If sudo fails, try without (in case directory already exists from previous run)
+                mkdir -p ${DEPLOY_DIR} 2>/dev/null || {
+                  echo "Warning: Could not create ${DEPLOY_DIR}, using home directory"
+                  DEPLOY_DIR="$HOME/sketchflow-ai"
+                  mkdir -p ${DEPLOY_DIR}
+                }
+              fi
+            else
+              # Directory exists, ensure we can write to it
+              if [ ! -w "${DEPLOY_DIR}" ]; then
+                # Try to fix permissions
+                sudo chown -R ${USER}:${USER} ${DEPLOY_DIR} 2>/dev/null || {
+                  echo "Warning: Cannot write to ${DEPLOY_DIR}, using home directory"
+                  DEPLOY_DIR="$HOME/sketchflow-ai"
+                  mkdir -p ${DEPLOY_DIR}
+                }
+              fi
+            fi
             
             # Copy files to deployment directory
-            cp -r dist/ package.json Dockerfile docker-compose.yml nginx.conf /opt/sketchflow-ai/
+            cp -r dist/ package.json Dockerfile docker-compose.yml nginx.conf ${DEPLOY_DIR}/
             
             # Create or update .env file with GEMINI_API_KEY
-            cd /opt/sketchflow-ai
+            cd ${DEPLOY_DIR}
             echo "GEMINI_API_KEY=${GEMINI_API_KEY}" > .env
             
             # Build and restart Docker container

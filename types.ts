@@ -31,7 +31,7 @@ export interface SketchElement {
   fontFamily?: string;
   seed: number;     // Random seed for roughjs consistency
   isDeleted?: boolean;
-  
+
   // For sticky lines
   startBinding?: string; // ID of element attached to start point
   endBinding?: string;   // ID of element attached to end point
@@ -58,4 +58,5 @@ export interface CanvasConfig {
   roughness: number;
   opacity: number;
   fontSize: number;
+  fontFamily: string;
 }
