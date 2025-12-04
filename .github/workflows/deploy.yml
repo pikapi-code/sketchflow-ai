@@ -139,6 +139,9 @@ jobs:
             echo "Dist folder contents:"
             ls -la ${DEPLOY_DIR}/dist/
             
+            # Remove .dockerignore if it exists (it excludes dist which we need for build)
+            rm -f ${DEPLOY_DIR}/.dockerignore
+            
             # Build and restart Docker container
             docker compose down || true
             docker compose up -d --build
