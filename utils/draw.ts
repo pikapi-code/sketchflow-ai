@@ -111,6 +111,12 @@ export const drawElement = (
       }
       break;
     case "text":
+      // Draw background if not transparent
+      if (element.backgroundColor && element.backgroundColor !== "transparent") {
+        context.fillStyle = element.backgroundColor;
+        context.fillRect(element.x, element.y, element.width, element.height);
+      }
+      // Draw text
       context.font = `${element.fontSize}px ${element.fontFamily || 'sans-serif'}`;
       context.fillStyle = effectiveStrokeColor;
       context.textAlign = "center";

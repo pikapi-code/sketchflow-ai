@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useLayoutEffect } from "react";
 import { Keyboard, X, GripHorizontal } from "lucide-react";
 
 interface ShortcutItem {
@@ -31,27 +31,67 @@ interface ShortcutsPanelProps {
   onClose?: () => void;
 }
 
+// Calculate initial position synchronously to prevent flash
+const getInitialPosition = () => {
+  if (typeof window === 'undefined') {
+    return { x: 0, y: 100 };
+  }
+  
+  const panelWidth = 260;
+  const rightGap = 16; // Same as right-4 (where the keyboard button is)
+  const topGap = 16; // top-4 for keyboard button
+  const bottomGap = 24; // bottom-6 for AI Generate button
+  const topButtonHeight = 48; // p-3 button height (~40px + padding)
+  const bottomButtonHeight = 64; // p-4 button height (~56px + padding)
+  
+  // Top button center: topGap + half button height
+  const topButtonCenter = topGap + topButtonHeight / 2;
+  // Bottom button center: window height - bottomGap - half button height
+  const bottomButtonCenter = window.innerHeight - bottomGap - bottomButtonHeight / 2;
+  // Center point between the two buttons, shifted up by 60px
+  const centerY = (topButtonCenter + bottomButtonCenter) / 2 - 60;
+  // Panel height is approximately 400px, so subtract half to center it
+  const panelHeight = 400;
+  
+  return {
+    x: window.innerWidth - panelWidth - rightGap,
+    y: centerY - panelHeight / 2
+  };
+};
+
 const ShortcutsPanel: React.FC<ShortcutsPanelProps> = ({ isOpen, onClose }) => {
-  const [position, setPosition] = useState({ x: 0, y: 100 });
+  const [position, setPosition] = useState(getInitialPosition);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const startPosRef = useRef({ x: 0, y: 0 });
 
-  useEffect(() => {
-    // Position on the right side, centered vertically between top button (top-4 = 16px) and bottom button (bottom-6 = 24px)
-    // Top button center is approximately at: 16px (top) + ~20px (half button height) = ~36px
-    // Bottom button center is approximately at: window.innerHeight - 24px (bottom) - ~30px (half button height) = window.innerHeight - ~54px
-    // Center point between buttons: (36 + window.innerHeight - 54) / 2 = (window.innerHeight - 18) / 2
-    // Panel should be centered at this point, so subtract half panel height (~200px)
-    const panelWidth = 260;
-    const rightGap = 16; // Same as right-4
-    const topButtonCenter = 16 + 20; // top-4 + approximate half button height
-    const bottomButtonCenter = window.innerHeight - 24 - 30; // bottom-6 - approximate half button height
-    const centerY = (topButtonCenter + bottomButtonCenter) / 2 - 200; // Center panel at midpoint
-    setPosition({ x: window.innerWidth - panelWidth - rightGap, y: Math.max(100, centerY) });
+  useLayoutEffect(() => {
+    // Update position on window resize, centered vertically between top and bottom buttons
+    const updatePosition = () => {
+      const panelWidth = 260;
+      const rightGap = 16;
+      const topGap = 16;
+      const bottomGap = 24;
+      const topButtonHeight = 48;
+      const bottomButtonHeight = 64;
+      const panelHeight = 400;
+      
+      const topButtonCenter = topGap + topButtonHeight / 2;
+      const bottomButtonCenter = window.innerHeight - bottomGap - bottomButtonHeight / 2;
+      const centerY = (topButtonCenter + bottomButtonCenter) / 2 - 60;
+      
+      setPosition(prev => ({
+        x: window.innerWidth - panelWidth - rightGap,
+        y: prev.y === 0 || prev.y === 100 ? centerY - panelHeight / 2 : prev.y
+      }));
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
       if (isDragging) {
         const dx = e.clientX - dragStartRef.current.x;

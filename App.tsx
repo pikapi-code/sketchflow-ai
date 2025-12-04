@@ -64,8 +64,14 @@ const App = () => {
     useEffect(() => {
         if (editingId && textareaRef.current) {
             textareaRef.current.focus();
-            // Move cursor to end
-            textareaRef.current.setSelectionRange(textareaRef.current.value.length, textareaRef.current.value.length);
+            // For center-aligned text: if empty, cursor at start (0) appears centered
+            // If text exists, cursor at end for normal appending behavior
+            const textLength = textareaRef.current.value.length;
+            if (textLength === 0) {
+                textareaRef.current.setSelectionRange(0, 0);
+            } else {
+                textareaRef.current.setSelectionRange(textLength, textLength);
+            }
         }
     }, [editingId]);
 
@@ -382,7 +388,7 @@ const App = () => {
             const id = nanoid();
             const newEl: SketchElement = {
                 id, type: 'text', x, y, width: 200, height: 40,
-                strokeColor: config.strokeColor, backgroundColor: config.backgroundColor || '#ffffff',
+                strokeColor: config.strokeColor, backgroundColor: 'transparent',
                 fillStyle: 'solid', strokeWidth: config.strokeWidth, roughness: 0, opacity: 100,
                 seed: Math.random(), text: "", fontSize: config.fontSize || 24
             };
@@ -869,7 +875,9 @@ const App = () => {
         const index = elements.findIndex(el => el.id === id);
         if (index > -1) {
             const el = elements[index];
-            const updatedEl = { ...el, text };
+            // Remove leading newlines that might cause visual issues
+            const cleanText = text.replace(/^\n+/, "");
+            const updatedEl = { ...el, text: cleanText };
             const copy = [...elements];
             copy[index] = updatedEl;
             setElements(copy);
@@ -1028,19 +1036,32 @@ const App = () => {
 
             {editingElement && editingElement.id && (() => {
                 const isTextType = editingElement.type === 'text';
+                const fontSize = editingElement.fontSize || (editingElement.type === 'text' ? 24 : 16);
+                const lineHeight = fontSize * 1.2;
+                const existingText = editingElement.text || "";
+                // Remove leading newlines that might cause visual issues
+                const cleanText = existingText.replace(/^\n+/, "");
+                const lines = cleanText.split("\n");
+                const totalHeight = lines.length * lineHeight || lineHeight;
+                
                 let left = editingElement.x;
                 let top = editingElement.y;
                 let width = Math.max(200, editingElement.width);
                 let height = Math.max(40, editingElement.height);
                 let textAlign: 'left' | 'center' = 'center';
                 let transform = 'none';
+                const scaledWidth = width * appState.zoom;
 
-                // Always center-align text, even for text type elements
                 if (isTextType) {
-                    // For text elements, center them based on their position
-                    left = editingElement.x + editingElement.width / 2;
-                    top = editingElement.y + editingElement.height / 2;
-                    transform = 'translate(-50%, -50%)';
+                    // For text elements, position at center horizontally, but align first line vertically
+                    const centerX = editingElement.x + editingElement.width / 2;
+                    const centerY = editingElement.y + editingElement.height / 2;
+                    // First line starts at: centerY - totalHeight/2 + lineHeight/2
+                    // But we want the textarea to align with the first line, so position it there
+                    const firstLineY = centerY - totalHeight / 2 + lineHeight / 2;
+                    left = centerX;
+                    top = firstLineY;
+                    transform = 'translate(-50%, 0)'; // Center horizontally, align top with first line
                 } else {
                     textAlign = 'center';
                     let cx = editingElement.x + editingElement.width / 2;
@@ -1051,28 +1072,37 @@ const App = () => {
                         cx = (p1.x + p2.x) / 2;
                         cy = (p1.y + p2.y) / 2;
                     }
+                    // For non-text elements, align first line with center
+                    const firstLineY = cy - totalHeight / 2 + lineHeight / 2;
                     left = cx;
-                    top = cy;
-                    transform = 'translate(-50%, -50%)';
+                    top = firstLineY;
+                    transform = 'translate(-50%, 0)'; // Center horizontally, align top with first line
                 }
+
+                // For text elements, show background color if not transparent
+                const showBackground = isTextType && editingElement.backgroundColor && editingElement.backgroundColor !== 'transparent';
+                const backgroundColor = showBackground ? editingElement.backgroundColor : 'transparent';
 
                 return (
                     <textarea
                         ref={textareaRef}
-                        className="fixed bg-transparent outline-none p-0 m-0 resize-none overflow-hidden z-50 select-text"
+                        className="fixed outline-none p-0 m-0 resize-none overflow-hidden z-50 select-text"
                         style={{
                             left: left * appState.zoom + appState.viewOffset.x,
                             top: top * appState.zoom + appState.viewOffset.y,
-                            fontSize: (editingElement.fontSize || (editingElement.type === 'text' ? 24 : 16)) * appState.zoom,
+                            fontSize: fontSize * appState.zoom,
                             fontFamily: editingElement.fontFamily || 'sans-serif',
-                            width: width * appState.zoom,
+                            width: scaledWidth,
                             height: height * appState.zoom,
                             color: appState.theme === 'dark' ? '#ffffff' : (editingElement.strokeColor === '#ffffff' ? '#000000' : editingElement.strokeColor),
+                            backgroundColor: backgroundColor,
                             textAlign,
                             transform,
-                            lineHeight: 1.2
+                            lineHeight: 1.2,
+                            padding: 0,
+                            verticalAlign: 'top'
                         }}
-                        value={editingElement.text || ""}
+                        value={cleanText}
                         onChange={(e) => handleTextChange(editingElement.id, e.target.value)}
                         onBlur={handleTextBlur}
                         onKeyDown={(e) => {
@@ -1082,7 +1112,7 @@ const App = () => {
                             e.stopPropagation();
                         }}
                         onPointerDown={(e) => e.stopPropagation()}
-                        placeholder="Type here..."
+                        placeholder={isTextType && cleanText.length === 0 ? "Type here..." : ""}
                     />
                 );
             })()}
