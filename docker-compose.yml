@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   sketchflow-ai:
     build:
@@ -12,4 +10,3 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     labels:
       - "com.docker.compose.project=sketchflow-ai"
-
