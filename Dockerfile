@@ -3,7 +3,7 @@
 FROM nginx:alpine
 
 # Copy built files (dist folder is already built in CI)
-COPY dist/ /usr/share/nginx/html
+COPY dist /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf

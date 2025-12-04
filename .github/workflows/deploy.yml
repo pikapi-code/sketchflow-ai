@@ -104,7 +104,13 @@ jobs:
             fi
             
             # Copy files to deployment directory
-            cp -r dist/ package.json package-lock.json Dockerfile docker-compose.yml nginx.conf ${DEPLOY_DIR}/
+            cp -r dist package.json package-lock.json Dockerfile docker-compose.yml nginx.conf ${DEPLOY_DIR}/
+            
+            # Verify dist folder exists and has content
+            if [ ! -d "${DEPLOY_DIR}/dist" ] || [ -z "$(ls -A ${DEPLOY_DIR}/dist 2>/dev/null)" ]; then
+              echo "Error: dist folder is missing or empty"
+              exit 1
+            fi
             
             # Create or update .env file with GEMINI_API_KEY
             cd ${DEPLOY_DIR}
