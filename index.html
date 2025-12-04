@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SketchFlow AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Space Grotesk"', 'sans-serif'],
+          },
+          boxShadow: {
+            'neo': '4px 4px 0px 0px rgba(0,0,0,1)',
+            'neo-sm': '2px 2px 0px 0px rgba(0,0,0,1)',
+          },
+          colors: {
+            brand: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              500: '#f43f5e',
+              600: '#e11d48',
+              900: '#881337',
+            },
+            neo: {
+              yellow: '#ffdc58',
+              green: '#a3e635',
+              blue: '#60a5fa',
+              purple: '#c084fc',
+              white: '#ffffff',
+              black: '#121212'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      overscroll-behavior: none;
+      touch-action: none;
+    }
+
+    /* Custom scrollbar for neobrutalist feel */
+    ::-webkit-scrollbar {
+      width: 12px;
+      height: 12px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      /* border-left removed to avoid phantom line */
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #888;
+      border: 2px solid black;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+  </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "nanoid": "https://aistudiocdn.com/nanoid@^5.1.6",
+    "perfect-freehand": "https://aistudiocdn.com/perfect-freehand@^1.2.2",
+    "roughjs": "https://aistudiocdn.com/roughjs@^4.6.6"
+  }
+}
+</script>
+  <link rel="stylesheet" href="/index.css">
+</head>
+
+<body class="bg-[#f0f0f0] dark:bg-[#121212] text-black dark:text-white overflow-hidden transition-colors duration-200">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>

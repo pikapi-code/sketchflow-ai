@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  sketchflow-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    labels:
+      - "com.docker.compose.project=sketchflow-ai"
+
