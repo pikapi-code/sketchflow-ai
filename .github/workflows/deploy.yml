@@ -33,7 +33,7 @@ jobs:
 
       - name: Create deployment archive
         run: |
-          tar -czf deploy.tar.gz dist/ package.json Dockerfile docker-compose.yml nginx.conf
+          tar -czf deploy.tar.gz dist/ package.json package-lock.json Dockerfile docker-compose.yml nginx.conf
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -104,7 +104,7 @@ jobs:
             fi
             
             # Copy files to deployment directory
-            cp -r dist/ package.json Dockerfile docker-compose.yml nginx.conf ${DEPLOY_DIR}/
+            cp -r dist/ package.json package-lock.json Dockerfile docker-compose.yml nginx.conf ${DEPLOY_DIR}/
             
             # Create or update .env file with GEMINI_API_KEY
             cd ${DEPLOY_DIR}
@@ -116,5 +116,5 @@ jobs:
             
             # Cleanup
             rm -f /tmp/deploy.tar.gz
-            rm -rf /tmp/dist /tmp/package.json /tmp/Dockerfile /tmp/docker-compose.yml /tmp/nginx.conf
+            rm -rf /tmp/dist /tmp/package.json /tmp/package-lock.json /tmp/Dockerfile /tmp/docker-compose.yml /tmp/nginx.conf
 

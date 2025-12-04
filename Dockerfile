@@ -1,26 +1,9 @@
-# Multi-stage build for production
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source code
-COPY . .
-
-# Build the application
-# Note: GEMINI_API_KEY should be set at runtime, not build time for security
-RUN npm run build
-
 # Production stage with nginx
+# Note: Application is pre-built in CI, so we just serve the static files
 FROM nginx:alpine
 
-# Copy built files from builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy built files (dist folder is already built in CI)
+COPY dist/ /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
