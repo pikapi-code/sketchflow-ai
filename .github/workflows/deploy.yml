@@ -33,7 +33,16 @@ jobs:
 
       - name: Create deployment archive
         run: |
-          tar -czf deploy.tar.gz dist/ package.json package-lock.json Dockerfile docker-compose.yml nginx.conf
+          # Verify dist folder exists
+          if [ ! -d "dist" ]; then
+            echo "Error: dist folder not found after build"
+            exit 1
+          fi
+          echo "Creating archive with:"
+          ls -la dist/ | head -10
+          tar -czf deploy.tar.gz dist package.json package-lock.json Dockerfile docker-compose.yml nginx.conf
+          echo "Archive created. Contents:"
+          tar -tzf deploy.tar.gz | head -20
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -75,6 +84,12 @@ jobs:
             cd /tmp
             tar -xzf deploy.tar.gz
             
+            # Verify extracted files
+            echo "Extracted files:"
+            ls -la /tmp/
+            echo "Dist folder contents:"
+            ls -la /tmp/dist/ || echo "ERROR: dist folder not found after extraction"
+            
             # Set deployment directory
             DEPLOY_DIR="/opt/sketchflow-ai"
             
@@ -108,13 +123,21 @@ jobs:
             
             # Verify dist folder exists and has content
             if [ ! -d "${DEPLOY_DIR}/dist" ] || [ -z "$(ls -A ${DEPLOY_DIR}/dist 2>/dev/null)" ]; then
-              echo "Error: dist folder is missing or empty"
+              echo "Error: dist folder is missing or empty in ${DEPLOY_DIR}"
+              echo "Contents of ${DEPLOY_DIR}:"
+              ls -la ${DEPLOY_DIR}/
               exit 1
             fi
             
             # Create or update .env file with GEMINI_API_KEY
             cd ${DEPLOY_DIR}
             echo "GEMINI_API_KEY=${GEMINI_API_KEY}" > .env
+            
+            # Verify files are in place before Docker build
+            echo "Files in deployment directory before Docker build:"
+            ls -la ${DEPLOY_DIR}/
+            echo "Dist folder contents:"
+            ls -la ${DEPLOY_DIR}/dist/
             
             # Build and restart Docker container
             docker compose down || true
